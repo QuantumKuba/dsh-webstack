@@ -1,5 +1,5 @@
 {
-  "name": "dsh-advanced-web-search",
+  "name": "dsh-webstack",
   "version": "0.1.0",
   "description": "High-grade SearXNG search and Scrapling fetch providers for DeepSeek Harness (ctx.web)",
   "keywords": [
@@ -58,6 +58,7 @@
     "test:security": "node --import tsx --test test/scrapling-security.test.ts",
     "test:cancellation": "node --import tsx --test test/scrapling-cancellation.test.ts",
     "test:integration": "node --import tsx --test test/integration.test.ts",
+    "benchmark": "node --import tsx benchmark/run.ts",
     "prepublishOnly": "pnpm run clean && pnpm run build && pnpm test"
   },
   "dependencies": {
@@ -81,7 +82,9 @@
     "@deepseek-ai/cordis": "^4.0.2",
     "@deepseek-ai/dsh-web": "0.1.5-rc.2",
     "@types/node": "^22.13.0",
+    "@types/turndown": "^5.0.6",
     "tsx": "^4.19.2",
+    "turndown": "^7.2.4",
     "typescript": "^5.7.3"
   }
 }

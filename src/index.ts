@@ -15,7 +15,7 @@ import {
   type ScraplingFetchConfig,
 } from "./scrapling/index.js";
 
-export const name = "dsh-advanced-web-search";
+export const name = "dsh-webstack";
 export const inject = ["web"] as const;
 
 export interface AdvancedWebSearchConfig {

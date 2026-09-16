@@ -1,6 +1,6 @@
-# Cordis patch layer for dsh-advanced-web-search
+# Cordis patch layer for dsh-webstack (and dsh-advanced-web-search alias)
 # Configures ctx.web to use SearXNG and Scrapling, tunes tool-web bounds for local LLMs,
-# and mounts the dsh-advanced-web-search provider bundle.
+# and mounts the provider bundle.
 
 - id: web
   config:
@@ -16,6 +16,26 @@
     fetchMaxOutputChars: 50000
 
 - insert:
+    - id: dsh-webstack
+      name: dsh-webstack
+      config:
+        searxng:
+          baseURL: http://127.0.0.1:8080
+          timeoutMs: 15000
+        scrapling:
+          timeoutMs: 20000
+          maxRedirects: 5
+          maxResponseBytes: 5000000
+          enableDynamicFallback: true
+          enableStealthFallback: true
+          stealthSolveCloudflare: true
+          stealthHideCanvas: true
+          stealthBlockWebRtc: true
+          stealthAllowWebGl: true
+          stealthGoogleSearch: true
+          stealthBlockAds: true
+          stealthRealChrome: true
+          stealthTimeoutMs: 60000
     - id: dsh-advanced-web-search
       name: dsh-advanced-web-search
       config:
@@ -23,8 +43,16 @@
           baseURL: http://127.0.0.1:8080
           timeoutMs: 15000
         scrapling:
-          timeoutMs: 30000
+          timeoutMs: 20000
           maxRedirects: 5
           maxResponseBytes: 5000000
-          enableDynamicFallback: false
-          enableStealthFallback: false
+          enableDynamicFallback: true
+          enableStealthFallback: true
+          stealthSolveCloudflare: true
+          stealthHideCanvas: true
+          stealthBlockWebRtc: true
+          stealthAllowWebGl: true
+          stealthGoogleSearch: true
+          stealthBlockAds: true
+          stealthRealChrome: true
+          stealthTimeoutMs: 60000
