@@ -20,6 +20,46 @@ export interface ScraplingFetchConfig {
    * Defaults to false.
    */
   readonly enableStealthFallback?: boolean;
+  /**
+   * Automatically solve Cloudflare Turnstile / Interstitial challenges when in stealth mode.
+   * Defaults to true.
+   */
+  readonly stealthSolveCloudflare?: boolean;
+  /**
+   * Inject random noise into canvas image data to prevent canvas fingerprinting.
+   * Defaults to true.
+   */
+  readonly stealthHideCanvas?: boolean;
+  /**
+   * Force WebRTC to respect proxy settings and prevent local IP address leaks.
+   * Defaults to true.
+   */
+  readonly stealthBlockWebRtc?: boolean;
+  /**
+   * Allow WebGL / WebGL 2.0 (disabling WebGL triggers WAF anti-bot flags).
+   * Defaults to true.
+   */
+  readonly stealthAllowWebGl?: boolean;
+  /**
+   * Spoof Google search referrer (https://www.google.com/) for search camouflage.
+   * Defaults to true.
+   */
+  readonly stealthGoogleSearch?: boolean;
+  /**
+   * Block ~3,500 known ad and tracking domains to eliminate anti-bot telemetry scripts.
+   * Defaults to true.
+   */
+  readonly stealthBlockAds?: boolean;
+  /**
+   * Launch system installed Chrome for authentic browser fingerprints.
+   * Defaults to true.
+   */
+  readonly stealthRealChrome?: boolean;
+  /**
+   * Timeout in milliseconds specifically for stealth challenge solving.
+   * Defaults to 60,000 ms as recommended by Scrapling documentation.
+   */
+  readonly stealthTimeoutMs?: number;
 }
 
 export const ScraplingConfig: z<ScraplingFetchConfig> = z.object({
@@ -29,6 +69,14 @@ export const ScraplingConfig: z<ScraplingFetchConfig> = z.object({
   maxResponseBytes: z.number().step(1).min(1024).default(5000000).description("Max response body size in bytes"),
   enableDynamicFallback: z.boolean().default(false).description("Enable dynamic browser fallback for JS SPAs"),
   enableStealthFallback: z.boolean().default(false).description("Enable stealth browser fallback for WAF challenges"),
+  stealthSolveCloudflare: z.boolean().default(true).description("Auto-solve Cloudflare Turnstile/Interstitial in stealth mode"),
+  stealthHideCanvas: z.boolean().default(true).description("Inject canvas noise to defeat fingerprinting"),
+  stealthBlockWebRtc: z.boolean().default(true).description("Block WebRTC local IP leak"),
+  stealthAllowWebGl: z.boolean().default(true).description("Allow WebGL to avoid anti-bot flags"),
+  stealthGoogleSearch: z.boolean().default(true).description("Spoof Google search referer"),
+  stealthBlockAds: z.boolean().default(true).description("Block ~3500 ad/tracker domains"),
+  stealthRealChrome: z.boolean().default(true).description("Use real Chrome for authentic browser fingerprint"),
+  stealthTimeoutMs: z.number().step(1).min(10000).default(60000).description("Timeout in ms for stealth challenge solving"),
 });
 
 export interface SidecarFetchPayload {
@@ -39,6 +87,13 @@ export interface SidecarFetchPayload {
   readonly max_response_bytes?: number;
   readonly network_idle?: boolean;
   readonly disable_resources?: boolean;
+  readonly solve_cloudflare?: boolean;
+  readonly hide_canvas?: boolean;
+  readonly block_webrtc?: boolean;
+  readonly allow_webgl?: boolean;
+  readonly google_search?: boolean;
+  readonly block_ads?: boolean;
+  readonly real_chrome?: boolean;
 }
 
 export interface SidecarFetchSuccess {

@@ -92,6 +92,28 @@ describe("Scrapling Fetch Provider Integration Tests", () => {
     assert.equal(result.truncated, true);
     assert.ok(Buffer.byteLength(result.body.content, "utf-8") <= 250);
   });
+
+  it("executes stealth mode fetch with all advanced bypass features enabled", async () => {
+    const stealthPayload = {
+      url: "https://example.com",
+      mode: "stealth" as const,
+      timeout_ms: 60000,
+      follow_redirects: false,
+      network_idle: true,
+      solve_cloudflare: true,
+      hide_canvas: true,
+      block_webrtc: true,
+      allow_webgl: true,
+      google_search: true,
+      block_ads: true,
+      real_chrome: true,
+    };
+    const controller = new AbortController();
+    const result = await bridge.fetch(stealthPayload, controller.signal);
+    assert.ok(!("error" in result), "Bridge fetch should succeed without error");
+    assert.equal(result.statusCode, 200);
+    assert.ok(result.html?.includes("Example Domain"));
+  });
 });
 
 describe("Cordis Integration & Plugin Seam Tests", () => {

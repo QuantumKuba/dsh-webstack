@@ -99,11 +99,16 @@ export class ScraplingFetchProvider implements WebFetchProvider {
     const timeoutMs = config.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
     const maxRedirects = config.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
     const maxResponseBytes = config.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+    const stealthTimeoutMs = config.stealthTimeoutMs ?? 60000;
+    // Total execution budget: if stealth fallback is enabled, allow enough time for initial hop + challenge solving
+    const totalBudgetMs = config.enableStealthFallback
+      ? timeoutMs + stealthTimeoutMs
+      : timeoutMs;
 
     const timeoutController = new AbortController();
     const timer = setTimeout(() => {
       timeoutController.abort(new Error("WEB_FETCH_TIMEOUT"));
-    }, timeoutMs);
+    }, totalBudgetMs);
 
     let activeSignal: AbortSignal;
     if (signal) {
@@ -119,6 +124,14 @@ export class ScraplingFetchProvider implements WebFetchProvider {
         maxResponseBytes,
         enableDynamicFallback: config.enableDynamicFallback ?? false,
         enableStealthFallback: config.enableStealthFallback ?? false,
+        stealthSolveCloudflare: config.stealthSolveCloudflare,
+        stealthHideCanvas: config.stealthHideCanvas,
+        stealthBlockWebRtc: config.stealthBlockWebRtc,
+        stealthAllowWebGl: config.stealthAllowWebGl,
+        stealthGoogleSearch: config.stealthGoogleSearch,
+        stealthBlockAds: config.stealthBlockAds,
+        stealthRealChrome: config.stealthRealChrome,
+        stealthTimeoutMs,
       });
     } catch (error: any) {
       if (error instanceof WebError) {
@@ -147,6 +160,14 @@ export class ScraplingFetchProvider implements WebFetchProvider {
       maxResponseBytes: number;
       enableDynamicFallback: boolean;
       enableStealthFallback: boolean;
+      stealthSolveCloudflare?: boolean;
+      stealthHideCanvas?: boolean;
+      stealthBlockWebRtc?: boolean;
+      stealthAllowWebGl?: boolean;
+      stealthGoogleSearch?: boolean;
+      stealthBlockAds?: boolean;
+      stealthRealChrome?: boolean;
+      stealthTimeoutMs?: number;
     }
   ): Promise<WebFetchResult> {
     let currentUrl = validateFetchUrl(initialUrl);
@@ -206,24 +227,52 @@ export class ScraplingFetchProvider implements WebFetchProvider {
         );
       }
 
-      // Step 4: Check if Dynamic Browser escalation is needed & enabled
-      if (
-        kind === "html" &&
-        options.enableDynamicFallback &&
-        this.shouldEscalateToDynamic(sidecarRes.html ?? "")
-      ) {
-        try {
-          const dynamicRes = await this.executeFetchHop(
-            currentUrl,
-            "dynamic",
-            options.timeoutMs,
-            signal
-          );
-          if (dynamicRes.statusCode === 200 && dynamicRes.html && dynamicRes.html.length > 0) {
-            sidecarRes = dynamicRes;
+      // Step 4: Check if Dynamic or Stealth Browser escalation is needed & enabled
+      const htmlContent = sidecarRes.html ?? "";
+      const isChallenge = this.isChallengeOrAntiBot(sidecarRes.statusCode, htmlContent);
+
+      if (kind === "html") {
+        if (isChallenge && options.enableStealthFallback) {
+          try {
+            const stealthTimeout = options.stealthTimeoutMs ?? Math.max(options.timeoutMs, 60000);
+            const stealthRes = await this.executeFetchHop(
+              currentUrl,
+              "stealth",
+              stealthTimeout,
+              signal,
+              {
+                solve_cloudflare: options.stealthSolveCloudflare ?? true,
+                hide_canvas: options.stealthHideCanvas ?? true,
+                block_webrtc: options.stealthBlockWebRtc ?? true,
+                allow_webgl: options.stealthAllowWebGl ?? true,
+                google_search: options.stealthGoogleSearch ?? true,
+                block_ads: options.stealthBlockAds ?? true,
+                real_chrome: options.stealthRealChrome ?? true,
+              }
+            );
+            if (stealthRes.statusCode === 200 && stealthRes.html && stealthRes.html.length > 0) {
+              sidecarRes = stealthRes;
+            }
+          } catch {
+            // Progressive degradation: retain initial result if stealth fails
           }
-        } catch {
-          // Dynamic fallback is progressive; if it fails, retain Tier 1 result
+        } else if (
+          options.enableDynamicFallback &&
+          this.shouldEscalateToDynamic(htmlContent)
+        ) {
+          try {
+            const dynamicRes = await this.executeFetchHop(
+              currentUrl,
+              "dynamic",
+              options.timeoutMs,
+              signal
+            );
+            if (dynamicRes.statusCode === 200 && dynamicRes.html && dynamicRes.html.length > 0) {
+              sidecarRes = dynamicRes;
+            }
+          } catch {
+            // Dynamic fallback is progressive; if it fails, retain Tier 1 result
+          }
         }
       }
 
@@ -258,7 +307,8 @@ export class ScraplingFetchProvider implements WebFetchProvider {
     url: URL,
     mode: "http" | "dynamic" | "stealth",
     timeoutMs: number,
-    signal: AbortSignal
+    signal: AbortSignal,
+    stealthOptions?: Partial<SidecarFetchPayload>
   ): Promise<SidecarFetchSuccess> {
     const payload: SidecarFetchPayload = {
       url: url.toString(),
@@ -267,6 +317,7 @@ export class ScraplingFetchProvider implements WebFetchProvider {
       follow_redirects: false, // Provider explicitly owns redirect validation loop
       network_idle: true,
       disable_resources: false,
+      ...stealthOptions,
     };
 
     const res = await this.bridge.fetch(payload, signal);
@@ -279,6 +330,25 @@ export class ScraplingFetchProvider implements WebFetchProvider {
     }
 
     return res;
+  }
+
+  /**
+   * Detect Cloudflare turnstile, bot-protection challenges, or anti-scraping responses.
+   */
+  private isChallengeOrAntiBot(statusCode: number, html: string): boolean {
+    if (statusCode === 403 || statusCode === 429 || statusCode === 202 || statusCode === 503) {
+      return (
+        html.includes("challenges.cloudflare.com") ||
+        html.includes("Just a moment...") ||
+        html.includes("cf-mitigated") ||
+        html.includes("Please complete the following challenge") ||
+        html.includes("Attention Required! | Cloudflare") ||
+        html.includes("Human Verification") ||
+        html.includes("bot detection") ||
+        html.includes("cf-turnstile")
+      );
+    }
+    return false;
   }
 
   /**

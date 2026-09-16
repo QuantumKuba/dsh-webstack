@@ -86,9 +86,16 @@ class ScraplingRequestHandler(BaseHTTPRequestHandler):
                     impersonate="chrome",
                 )
 
-                # Extract content
-                html = str(res.html_content) if hasattr(res, "html_content") and res.html_content else ""
-                text = str(res.text) if hasattr(res, "text") and res.text else ""
+                # Extract content: prefer html_content for HTML, decode body for text/JSON/markdown
+                raw_body_text = ""
+                if hasattr(res, "body") and res.body:
+                    try:
+                        raw_body_text = res.body.decode(getattr(res, "encoding", None) or "utf-8", errors="replace")
+                    except Exception:
+                        raw_body_text = str(res.body)
+
+                html = str(res.html_content) if hasattr(res, "html_content") and res.html_content else raw_body_text
+                text = raw_body_text if raw_body_text else (str(res.text) if hasattr(res, "text") and res.text else "")
 
                 headers_dict = dict(res.headers) if hasattr(res, "headers") and res.headers else {}
                 # Normalize header keys to lowercase
@@ -118,8 +125,16 @@ class ScraplingRequestHandler(BaseHTTPRequestHandler):
                     disable_resources=disable_resources,
                 )
 
-                html = str(res.html_content) if hasattr(res, "html_content") and res.html_content else ""
-                text = str(res.text) if hasattr(res, "text") and res.text else ""
+                raw_body_text = ""
+                if hasattr(res, "body") and res.body:
+                    try:
+                        raw_body_text = res.body.decode(getattr(res, "encoding", None) or "utf-8", errors="replace")
+                    except Exception:
+                        raw_body_text = str(res.body)
+
+                html = str(res.html_content) if hasattr(res, "html_content") and res.html_content else raw_body_text
+                text = raw_body_text if raw_body_text else (str(res.text) if hasattr(res, "text") and res.text else "")
+
                 headers_dict = dict(res.headers) if hasattr(res, "headers") and res.headers else {}
                 lower_headers = {str(k).lower(): str(v) for k, v in headers_dict.items()}
 
@@ -136,19 +151,41 @@ class ScraplingRequestHandler(BaseHTTPRequestHandler):
                 )
 
             elif mode == "stealth":
-                # Tier 3: Stealth browser
+                # Tier 3: Stealth browser with advanced bypass mode
                 timeout_playwright = int(timeout_ms)
+                solve_cloudflare = bool(data.get("solve_cloudflare", True))
+                # Cloudflare challenge solving requires at least 60s as documented in Scrapling docs
+                if solve_cloudflare and timeout_playwright < 60000:
+                    timeout_playwright = 60000
+
+                # When solving challenges, resources must NOT be disabled as scripts/styles are required
+                stealth_disable_resources = False if solve_cloudflare else disable_resources
+
                 res = StealthyFetcher.fetch(
                     url,
                     headless=True,
                     timeout=timeout_playwright,
                     network_idle=network_idle,
-                    real_chrome=True,
-                    solve_cloudflare=True,
+                    real_chrome=bool(data.get("real_chrome", True)),
+                    solve_cloudflare=solve_cloudflare,
+                    hide_canvas=bool(data.get("hide_canvas", True)),
+                    block_webrtc=bool(data.get("block_webrtc", True)),
+                    allow_webgl=bool(data.get("allow_webgl", True)),
+                    google_search=bool(data.get("google_search", True)),
+                    block_ads=bool(data.get("block_ads", True)),
+                    disable_resources=stealth_disable_resources,
                 )
 
-                html = str(res.html_content) if hasattr(res, "html_content") and res.html_content else ""
-                text = str(res.text) if hasattr(res, "text") and res.text else ""
+                raw_body_text = ""
+                if hasattr(res, "body") and res.body:
+                    try:
+                        raw_body_text = res.body.decode(getattr(res, "encoding", None) or "utf-8", errors="replace")
+                    except Exception:
+                        raw_body_text = str(res.body)
+
+                html = str(res.html_content) if hasattr(res, "html_content") and res.html_content else raw_body_text
+                text = raw_body_text if raw_body_text else (str(res.text) if hasattr(res, "text") and res.text else "")
+
                 headers_dict = dict(res.headers) if hasattr(res, "headers") and res.headers else {}
                 lower_headers = {str(k).lower(): str(v) for k, v in headers_dict.items()}
 
