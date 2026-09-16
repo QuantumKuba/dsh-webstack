@@ -225,5 +225,3 @@ pnpm test:integration   # Live HTTP fetch, redirect rules, Cordis WebRuntime sea
 ## License
 
 MIT © Kuba
-
-# dsh-webstack
