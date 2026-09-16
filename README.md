@@ -112,74 +112,116 @@ Empirically validated on Apple Silicon (`Darwin arm64`) against local **SearXNG*
 
 ---
 
-## Installation & Setup
+## Prerequisites & Installation
 
-Follow these steps to configure `dsh-webstack` in your environment.
-
-### 1. Prerequisites
-
-* **Node.js**: `v22.18.0` or higher
-* **Python**: `3.11+` with Scrapling installed
-* **SearXNG**: Running locally or accessible over your network (default: `http://127.0.0.1:8080`)
+Follow this comprehensive guide to configure **SearXNG**, the **Python Scrapling environment**, and **DeepSeek Harness** from scratch.
 
 ---
 
-### 2. Step-by-Step Setup
+### 1. SearXNG Setup (Official Docker Compose Guide)
 
-#### Step A: Configure SearXNG
+`dsh-webstack` requires a running SearXNG instance with its JSON API enabled. Follow the official [SearXNG Container Deployment](https://docs.searxng.org/admin/installation-docker.html#installation-container) workflow:
 
-SearXNG must have the `json` output format enabled and the rate-limiter adjusted for local programmatic harness access.
+#### Step 1: Create Directory & Download Official Compose Templates
+```bash
+# Create a dedicated directory for SearXNG and its configuration
+mkdir -p ~/searxng/core-config
+cd ~/searxng
 
-##### Option 1: Docker Compose (Recommended)
-Create or use your `docker-compose.yml`:
-
-```yaml
-services:
-  searxng:
-    container_name: searxng-core
-    image: docker.io/searxng/searxng:latest
-    restart: always
-    ports:
-      - "127.0.0.1:8080:8080"
-    volumes:
-      - ./core-config/:/etc/searxng/:Z
-    environment:
-      - SEARXNG_BASE_URL=http://127.0.0.1:8080/
+# Fetch the official SearXNG docker-compose.yml and .env.example templates
+curl -fsSL \
+  -O https://raw.githubusercontent.com/searxng/searxng/master/container/docker-compose.yml \
+  -O https://raw.githubusercontent.com/searxng/searxng/master/container/.env.example
 ```
 
-In your `./core-config/settings.yml`, ensure the following options are set:
+#### Step 2: Configure `.env`
+```bash
+# Copy the example environment file
+cp -i .env.example .env
+```
 
+Open `.env` in your editor and ensure `SEARXNG_HOST` is bound to localhost (or your desired interface):
+```bash
+# Listen to loopback only (safe for local harness usage)
+SEARXNG_HOST=127.0.0.1
+SEARXNG_PORT=8080
+```
+
+#### Step 3: Configure `core-config/settings.yml` & Generate Secret Key
+SearXNG requires a random secret key and specific settings to serve local AI agent harnesses.
+
+Create or edit `core-config/settings.yml`:
 ```yaml
 use_default_settings: true
 
 server:
-  bind_address: "0.0.0.0"
+  bind_address: "127.0.0.1"
   port: 8080
-  secret_key: "generate_a_secure_random_key_here"
-  limiter: false           # Disabled for local agent consumption
+  # Generate with: openssl rand -hex 32
+  secret_key: "GENERATE_A_RANDOM_SECRET_KEY_HERE"
+  limiter: false           # REQUIRED: Disable rate limiter for local agent harnesses
+  image_proxy: true
 
 search:
   safe_search: 0
+  max_page: 10
   formats:
     - html
-    - json                 # REQUIRED for dsh-webstack
+    - json                 # REQUIRED: Enables the JSON API consumed by dsh-webstack
+
+general:
+  debug: false
+  instance_name: "SearXNG (local)"
+
+# Optional: Enable or disable specific engines
+engines:
+  - name: bing
+    disabled: false
+  - name: duckduckgo
+    disabled: false
+  - name: google
+    disabled: false
+  - name: github
+    disabled: false
+    categories: [general, it]
+  - name: npm
+    disabled: false
+    categories: [general, it]
+  - name: pypi
+    disabled: false
+    categories: [general, it]
 ```
 
-##### Option 2: Standalone Docker Container
+> 🔑 **Quick secret key generation**:
+> ```bash
+> sed -i '' -e "s/GENERATE_A_RANDOM_SECRET_KEY_HERE/$(openssl rand -hex 32)/g" core-config/settings.yml
+> ```
+
+#### Step 4: Start Services with Docker Compose
+The official compose file includes both `searxng-core` and `searxng-valkey` (Redis-compatible cache for rapid result caching):
+
 ```bash
-docker run -d --name searxng -p 8080:8080 \
-  -e SEARXNG_BASE_URL=http://127.0.0.1:8080/ \
-  searxng/searxng:latest
+# Start SearXNG and Valkey in detached mode
+docker compose up -d
 ```
 
-##### Verify SearXNG
+#### Step 5: Verify SearXNG is Operational
+Test the JSON API endpoint using `curl`:
 ```bash
-curl -s "http://127.0.0.1:8080/search?q=test&format=json" | grep -q "results" && echo "SearXNG is ready!"
+curl -s "http://127.0.0.1:8080/search?q=deepseek+harness&format=json" | grep -q "results" && echo "✅ SearXNG is ready!"
+```
+
+#### Useful SearXNG Management Commands
+```bash
+docker compose ps           # Check container status
+docker compose logs -f core  # Tail SearXNG core logs
+docker compose restart      # Restart services (e.g. after editing settings.yml)
+docker compose down         # Stop and remove containers
 ```
 
 ---
 
-#### Step B: Set Up Python & Scrapling
+### 2. Python & Scrapling Environment Setup
 
 `dsh-webstack` communicates with Scrapling via an ephemeral Python micro-sidecar.
 
@@ -206,9 +248,7 @@ curl -s "http://127.0.0.1:8080/search?q=test&format=json" | grep -q "results" &&
 
 > 💡 **Tip**: You can point `dsh-webstack` to this Python interpreter using the `pythonBinary` configuration setting or by exporting `SCRAPLING_PYTHON="~/.venvs/scrapling/bin/python3"`.
 
----
-
-#### Step C: Install Plugin into DeepSeek Harness
+### 3. DeepSeek Harness Integration
 
 ##### Method 1: Via Plugin Market / Package Manager
 ```bash
