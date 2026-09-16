@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="img/header-image.png" alt="dsh-webstack header banner" width="100%" />
+</p>
+
 # dsh-webstack
 
 > **High-Grade Web Capability Plugin for DeepSeek Harness (`ctx.web`)**  
