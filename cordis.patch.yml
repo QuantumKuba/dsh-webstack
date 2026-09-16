@@ -1,0 +1,30 @@
+# Cordis patch layer for dsh-advanced-web-search
+# Configures ctx.web to use SearXNG and Scrapling, tunes tool-web bounds for local LLMs,
+# and mounts the dsh-advanced-web-search provider bundle.
+
+- id: web
+  config:
+    searchProvider: searxng
+    fetchProvider: scrapling
+
+- id: tool-web
+  config:
+    fetch: true
+    searchTimeoutMs: 30000
+    searchMaxResults: 8
+    searchMaxQueries: 4
+    fetchMaxOutputChars: 50000
+
+- insert:
+    - id: dsh-advanced-web-search
+      name: dsh-advanced-web-search
+      config:
+        searxng:
+          baseURL: http://127.0.0.1:8080
+          timeoutMs: 15000
+        scrapling:
+          timeoutMs: 30000
+          maxRedirects: 5
+          maxResponseBytes: 5000000
+          enableDynamicFallback: false
+          enableStealthFallback: false

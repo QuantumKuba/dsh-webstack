@@ -1,0 +1,87 @@
+{
+  "name": "dsh-advanced-web-search",
+  "version": "0.1.0",
+  "description": "High-grade SearXNG search and Scrapling fetch providers for DeepSeek Harness (ctx.web)",
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "cordis",
+    "searxng",
+    "scrapling",
+    "web-search",
+    "web-fetch"
+  ],
+  "license": "MIT",
+  "author": "QuantumKuba",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./searxng": {
+      "types": "./lib/types/searxng/index.d.ts",
+      "default": "./lib/searxng/index.js"
+    },
+    "./scrapling": {
+      "types": "./lib/types/scrapling/index.d.ts",
+      "default": "./lib/scrapling/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "python",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "packageManager": "pnpm@10.32.0",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "clean": "rm -rf lib",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:searxng": "node --import tsx --test test/searxng-provider.test.ts",
+    "test:security": "node --import tsx --test test/scrapling-security.test.ts",
+    "test:cancellation": "node --import tsx --test test/scrapling-cancellation.test.ts",
+    "test:integration": "node --import tsx --test test/integration.test.ts",
+    "prepublishOnly": "pnpm run clean && pnpm run build && pnpm test"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.2",
+    "ipaddr.js": "^2.2.0",
+    "undici": "^7.4.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=4.0.0 <5",
+    "@deepseek-ai/dsh-web": "^0.1.5-rc.2"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-web": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-web": "0.1.5-rc.2",
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
