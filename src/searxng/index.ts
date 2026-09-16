@@ -8,7 +8,14 @@ export const Config = SearxngConfig;
 
 export function apply(ctx: Context, config: SearxngSearchConfig): void {
   const provider = new SearxngSearchProvider(config);
-  ctx.web.registerSearchProvider(provider);
+  try {
+    ctx.web.registerSearchProvider(provider);
+  } catch (err: any) {
+    if (err?.code === "WEB_DUPLICATE_PROVIDER") {
+      return;
+    }
+    throw err;
+  }
 }
 
 export {

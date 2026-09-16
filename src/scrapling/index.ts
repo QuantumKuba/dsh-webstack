@@ -8,7 +8,14 @@ export const Config = ScraplingConfig;
 
 export function apply(ctx: Context, config: ScraplingFetchConfig): void {
   const provider = new ScraplingFetchProvider(config);
-  ctx.web.registerFetchProvider(provider);
+  try {
+    ctx.web.registerFetchProvider(provider);
+  } catch (err: any) {
+    if (err?.code === "WEB_DUPLICATE_PROVIDER") {
+      return;
+    }
+    throw err;
+  }
 
   // Hook cleanup into Cordis plugin unmount
   ctx.effect(() => {

@@ -163,4 +163,35 @@ describe("Cordis Integration & Plugin Seam Tests", () => {
     // Cleanly unmount plugin fork
     fork.dispose();
   });
+
+  it("handles duplicate mounting idempotently without throwing WEB_DUPLICATE_PROVIDER", async () => {
+    const ctx = new Context();
+    new WebRuntime(ctx, {
+      searchProvider: "searxng",
+      fetchProvider: "scrapling",
+    });
+
+    // Mount first instance
+    const fork1 = ctx.plugin(AdvancedWebSearchPlugin, {
+      searxng: { baseURL: "http://127.0.0.1:8080" },
+      scrapling: { timeoutMs: 15000 },
+    });
+    await fork1;
+
+    // Mount second instance (e.g. duplicate loader entry or alias)
+    // Must not throw WEB_DUPLICATE_PROVIDER
+    let fork2: any;
+    assert.doesNotThrow(() => {
+      fork2 = ctx.plugin(AdvancedWebSearchPlugin, {
+        searxng: { baseURL: "http://127.0.0.1:8080" },
+        scrapling: { timeoutMs: 15000 },
+      });
+    });
+    await fork2;
+
+    assert.ok(ctx.web, "ctx.web must be initialized");
+
+    fork1.dispose();
+    if (fork2) fork2.dispose();
+  });
 });
