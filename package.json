@@ -56,6 +56,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
+    "test:compat": "node --import tsx --test --test-skip-pattern=Live test/compat.test.ts test/searxng-provider.test.ts test/scrapling-security.test.ts",
     "test:searxng": "node --import tsx --test test/searxng-provider.test.ts",
     "test:security": "node --import tsx --test test/scrapling-security.test.ts",
     "test:cancellation": "node --import tsx --test test/scrapling-cancellation.test.ts",

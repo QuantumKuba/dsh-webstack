@@ -1,0 +1,94 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  resolve:
+    name: Resolve supported dsh-web versions
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: matrix
+        # Only versions inside the declared peer range gate a PR; beyond-range
+        # versions are the canary's job (see canary.yml).
+        run: node .github/scripts/resolve-matrix.mjs --scope=range
+
+  locked:
+    name: Lockfile as committed
+    uses: ./.github/workflows/compat.yml
+    with:
+      label: locked
+      version: locked
+
+  range:
+    name: Supported range
+    needs: resolve
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.resolve.outputs.matrix) }}
+    uses: ./.github/workflows/compat.yml
+    with:
+      label: ${{ matrix.label }}
+      version: ${{ matrix.version }}
+
+  # Live smoke: real SearXNG + real Scrapling + public internet. Informative only —
+  # it depends on third parties, so it must never block a merge or page anyone.
+  smoke:
+    name: Live smoke (non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install Scrapling sidecar dependencies
+        run: |
+          python -m venv "$RUNNER_TEMP/scrapling"
+          "$RUNNER_TEMP/scrapling/bin/pip" install "scrapling[fetchers]"
+          echo "SCRAPLING_PYTHON=$RUNNER_TEMP/scrapling/bin/python" >> "$GITHUB_ENV"
+
+      - name: Start SearXNG with the JSON API enabled
+        run: |
+          mkdir -p "$RUNNER_TEMP/searxng"
+          cat > "$RUNNER_TEMP/searxng/settings.yml" <<YAML
+          use_default_settings: true
+          server:
+            secret_key: "$(openssl rand -hex 32)"
+            limiter: false
+          search:
+            formats: [html, json]
+          YAML
+          docker run -d --name searxng -p 8080:8080 \
+            -v "$RUNNER_TEMP/searxng/settings.yml:/etc/searxng/settings.yml:ro" \
+            docker.io/searxng/searxng:latest
+          for i in $(seq 1 30); do
+            curl -fsS "http://127.0.0.1:8080/search?q=test&format=json" >/dev/null && exit 0
+            sleep 2
+          done
+          docker logs searxng
+          exit 1
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test

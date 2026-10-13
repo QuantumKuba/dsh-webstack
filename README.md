@@ -158,6 +158,7 @@ Comprehensive guides and technical documentation are available in the [`docs/`](
 | Guide | Description |
 | :--- | :--- |
 | [**SearXNG Setup Guide**](docs/searxng-setup.md) | Official Docker Compose deployment, `settings.yml` tuning, secret key generation, and Valkey caching. |
+| [**Compatibility & Canary**](docs/compatibility.md) | How supported `dsh-web` versions are verified, how failures notify you, and what to do when one goes red. |
 | [**Scrapling Environment Setup**](docs/scrapling-setup.md) | Python 3.11+ virtual environment setup, Playwright Chromium installation, and sidecar verification. |
 | [**Configuration Reference**](docs/configuration.md) | Complete Cordis patch layer, parameter catalog for SearXNG and Scrapling, and context bounds tuning. |
 | [**Programmatic Usage Guide**](docs/programmatic-usage.md) | Standalone Node.js & TypeScript usage of `SearxngSearchProvider` and `ScraplingFetchProvider` without Harness. |

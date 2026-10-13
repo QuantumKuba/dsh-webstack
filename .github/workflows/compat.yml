@@ -1,0 +1,129 @@
+# Reusable: build + offline contract tests against one @deepseek-ai/dsh-web version.
+# Called by ci.yml (pull requests / pushes) and canary.yml (scheduled).
+name: compat
+
+on:
+  workflow_call:
+    inputs:
+      label:
+        description: Stable name of this leg (range-min, range-max, next, alpha, ...). Keys the issue.
+        type: string
+        required: true
+      version:
+        description: Exact dsh-web version to install, or "locked" to use pnpm-lock.yaml as committed.
+        type: string
+        default: locked
+      notify:
+        description: Open/update/close a tracking issue (and ping the webhook) based on the result.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  compat:
+    name: dsh-web@${{ inputs.version }} (${{ inputs.label }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install (lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Swap in dsh-web@${{ inputs.version }}
+        if: inputs.version != 'locked'
+        run: pnpm add -D --save-exact "@deepseek-ai/dsh-web@${{ inputs.version }}"
+
+      - name: Show resolved host dependency tree
+        run: |
+          {
+            echo '### Resolved dependencies'
+            echo '```'
+            pnpm ls @deepseek-ai/dsh-web @deepseek-ai/schemastery @deepseek-ai/cordis --depth 3
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Offline contract tests
+        run: pnpm run test:compat
+
+      # ---- notification -------------------------------------------------------
+      - name: Open or update tracking issue
+        if: failure() && inputs.notify
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          LABEL: ${{ inputs.label }}
+          VERSION: ${{ inputs.version }}
+        with:
+          script: |
+            const { LABEL, VERSION } = process.env;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const title = `Compat canary failing: @deepseek-ai/dsh-web [${LABEL}]`;
+            const marker = `<!-- compat-canary:${LABEL} -->`;
+            const stamp = `\`@deepseek-ai/dsh-web@${VERSION}\` — [run](${runUrl}) — ${new Date().toISOString()}`;
+
+            const label = 'dsh-compat';
+            try { await github.rest.issues.createLabel({ ...context.repo, name: label, color: 'B60205',
+              description: 'Plugin fails against a dsh-web release' }); } catch (e) { if (e.status !== 422) throw e; }
+
+            const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: label, per_page: 100 });
+            const existing = open.find((i) => i.body?.includes(marker));
+
+            if (!existing) {
+              await github.rest.issues.create({ ...context.repo, title, labels: [label], body: [
+                marker,
+                `The compatibility gate (typecheck, build, offline contract tests) **failed** against dsh-web leg \`${LABEL}\`.`,
+                '', `- Last failing: ${stamp}`,
+                '', 'Reproduce locally:',
+                '```sh', `pnpm add -D --save-exact @deepseek-ai/dsh-web@${VERSION}`, 'pnpm run typecheck && pnpm run test:compat', '```',
+                '', 'This issue closes itself when the leg passes again.',
+              ].join('\n') });
+            } else if (!existing.body.includes(`dsh-web@${VERSION}\``)) {
+              // A different version is failing now: record it, don't spam on identical re-runs.
+              await github.rest.issues.update({ ...context.repo, issue_number: existing.number,
+                body: `${existing.body}\n- Also failing: ${stamp}` });
+              await github.rest.issues.createComment({ ...context.repo, issue_number: existing.number,
+                body: `Still failing on a newer version: ${stamp}` });
+            }
+
+      - name: Close tracking issue when green again
+        if: success() && inputs.notify
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          LABEL: ${{ inputs.label }}
+          VERSION: ${{ inputs.version }}
+        with:
+          script: |
+            const { LABEL, VERSION } = process.env;
+            const marker = `<!-- compat-canary:${LABEL} -->`;
+            const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: 'dsh-compat', per_page: 100 });
+            for (const issue of open.filter((i) => i.body?.includes(marker))) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: issue.number,
+                body: `Passing again on \`@deepseek-ai/dsh-web@${VERSION}\`. Closing.` });
+              await github.rest.issues.update({ ...context.repo, issue_number: issue.number, state: 'closed', state_reason: 'completed' });
+            }
+
+      - name: Ping webhook (optional)
+        if: failure() && inputs.notify
+        env:
+          WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+          MESSAGE: "dsh-webstack: compat canary FAILING for @deepseek-ai/dsh-web@${{ inputs.version }} [${{ inputs.label }}] ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        run: |
+          [ -n "$WEBHOOK_URL" ] || { echo "NOTIFY_WEBHOOK_URL not set; skipping"; exit 0; }
+          # `text` is read by Slack-style webhooks, `content` by Discord-style ones.
+          jq -n --arg m "$MESSAGE" '{text: $m, content: $m}' \
+            | curl -fsS -X POST -H 'Content-Type: application/json' --data @- "$WEBHOOK_URL"

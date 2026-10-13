@@ -1,0 +1,48 @@
+# Dependency canary: tells us when a dsh release (inside OR beyond our declared
+# range) stops working with this plugin — without pinning anything.
+#
+# Failures open a `dsh-compat` issue (GitHub emails watchers) and optionally
+# ping NOTIFY_WEBHOOK_URL. Issues close themselves when the leg goes green.
+name: canary
+
+on:
+  schedule:
+    - cron: "23 5 * * *" # daily, 05:23 UTC
+  workflow_dispatch:
+  repository_dispatch:
+    types: [dsh-release] # lets a release pipeline trigger an immediate check
+
+permissions:
+  contents: read
+
+concurrency:
+  group: canary
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve versions to watch
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: matrix
+        run: node .github/scripts/resolve-matrix.mjs --scope=all
+
+  compat:
+    name: ${{ matrix.label }}
+    needs: resolve
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.resolve.outputs.matrix) }}
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/compat.yml
+    secrets: inherit
+    with:
+      label: ${{ matrix.label }}
+      version: ${{ matrix.version }}
+      notify: true
