@@ -1,6 +1,6 @@
 {
   "name": "dsh-webstack",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "High-grade SearXNG search and Scrapling fetch providers for DeepSeek Harness (ctx.web)",
   "keywords": [
     "deepseek",
@@ -64,13 +64,13 @@
     "prepublishOnly": "pnpm run clean && pnpm run build && pnpm test"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "^3.18.2",
+    "@deepseek-ai/schemastery": "~3.18.4",
     "ipaddr.js": "^2.2.0",
     "undici": "^7.4.0"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": ">=4.0.0 <5",
-    "@deepseek-ai/dsh-web": "^0.1.5-rc.2"
+    "@deepseek-ai/dsh-web": "^0.1.5-rc.2 || ^0.2.0-rc.2"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
@@ -82,7 +82,7 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.2",
-    "@deepseek-ai/dsh-web": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-web": "0.2.0-rc.2",
     "@types/node": "^22.13.0",
     "@types/turndown": "^5.0.6",
     "tsx": "^4.19.2",
