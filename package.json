@@ -67,7 +67,7 @@
   "dependencies": {
     "@deepseek-ai/schemastery": "~3.18.4",
     "ipaddr.js": "^2.2.0",
-    "undici": "^7.4.0"
+    "undici": "^8.11.2"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": ">=4.0.0 <5",
