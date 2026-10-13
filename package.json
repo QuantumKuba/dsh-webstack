@@ -82,7 +82,7 @@
     }
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/cordis": "^4.0.4",
     "@deepseek-ai/dsh-web": "0.2.0-rc.2",
     "@types/node": "^22.13.0",
     "@types/turndown": "^5.0.6",
