@@ -65,7 +65,7 @@
     "prepublishOnly": "pnpm run clean && pnpm run build && pnpm test"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "~3.18.4",
+    "@deepseek-ai/schemastery": "~3.18.5",
     "ipaddr.js": "^2.2.0",
     "undici": "^7.4.0"
   },
@@ -82,7 +82,7 @@
     }
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/cordis": "^4.0.5",
     "@deepseek-ai/dsh-web": "0.2.0-rc.2",
     "@types/node": "^22.13.0",
     "@types/turndown": "^5.0.6",
